@@ -23,6 +23,15 @@ def analisar_texto_transformers(texto):
     except Exception as e:
         return {"erro": str(e)}
 
+# Função para determinar o avaliador (Promotor, Neutro, Detrator)
+def classificar_analise(score):
+    if score >= 9.0:
+        return "Promotor"
+    elif 6.0 <= score <= 8.9:
+        return "Neutro"
+    else:
+        return "Detrator"
+
 # Rota para exibir a análise em HTML
 @app.route('/analisar_texto/<int:texto_id>')
 def analisar_texto(texto_id):
@@ -34,6 +43,12 @@ def analisar_texto(texto_id):
     
     conteudo = resultado.get('conteudo', 'Texto não encontrado')
     analise = analisar_texto_transformers(conteudo)
+
+    if isinstance(analise, dict) and "erro" in analise:
+        return f"<h1>{analise['erro']}</h1>"
+
+    score = analise['score']
+    classificacao = classificar_analise(score)
 
     # Template HTML com CSS
     template_html = '''
@@ -70,6 +85,24 @@ def analisar_texto(texto_id):
                 border-left: 5px solid #2196F3;
                 margin-top: 10px;
             }
+            .classificacao {
+                font-weight: bold;
+                padding: 10px;
+                background-color: #f1f1f1;
+                margin-top: 10px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                text-align: center;
+            }
+            .promotor {
+                color: #4CAF50;
+            }
+            .neutro {
+                color: #FF9800;
+            }
+            .detrator {
+                color: #F44336;
+            }
         </style>
     </head>
     <body>
@@ -84,12 +117,15 @@ def analisar_texto(texto_id):
                 <p>Sentimento: {{ analise['label'] }}</p>
                 <p>Confiança: {{ analise['score']|round(2) }}</p>
             </div>
+            <div class="classificacao {% if classificacao == 'Promotor' %}promotor{% elif classificacao == 'Neutro' %}neutro{% else %}detrator{% endif %}">
+                <p>Avaliação: {{ classificacao }}</p>
+            </div>
         </div>
     </body>
     </html>
     '''
     # Renderiza o HTML substituindo as variáveis
-    return render_template_string(template_html, conteudo=conteudo, analise=analise)
+    return render_template_string(template_html, conteudo=conteudo, analise=analise, classificacao=classificacao)
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5001)  # Usando a porta 5001
