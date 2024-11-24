@@ -25,9 +25,9 @@ def analisar_texto_transformers(texto):
 
 # Função para determinar o avaliador (Promotor, Neutro, Detrator)
 def classificar_analise(score):
-    if score >= 9.0:
+    if score >= 0.8:
         return "Promotor"
-    elif 6.0 <= score <= 8.9:
+    elif 0.5 < score < 0.8:
         return "Neutro"
     else:
         return "Detrator"
