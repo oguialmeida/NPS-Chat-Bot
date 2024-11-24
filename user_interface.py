@@ -1,8 +1,11 @@
+from flask import Flask, request, jsonify, render_template_string
 import requests
 from transformers import pipeline
 
+app = Flask(__name__)
+
+# Função para buscar o texto por ID da API
 def buscar_texto(base_url, texto_id):
-    """Faz a requisição à API para buscar um texto pelo ID."""
     url = f"{base_url}/buscar_analise/{texto_id}"
     try:
         response = requests.get(url)
@@ -11,27 +14,82 @@ def buscar_texto(base_url, texto_id):
     except requests.exceptions.RequestException as e:
         return {"erro": str(e)}
 
+# Função para análise de texto com Hugging Face Transformers
 def analisar_texto_transformers(texto):
-    """Analisa o texto usando Hugging Face Transformers."""
     try:
-        # Carregar o pipeline para análise de sentimentos
         sentiment_analysis = pipeline("sentiment-analysis")
         resultado = sentiment_analysis(texto)
         return resultado[0]  # Retorna o primeiro resultado
     except Exception as e:
-        return f"Erro ao analisar texto: {str(e)}"
+        return {"erro": str(e)}
+
+# Rota para exibir a análise em HTML
+@app.route('/analisar_texto/<int:texto_id>')
+def analisar_texto(texto_id):
+    base_url = "http://127.0.0.1:5000"
+    resultado = buscar_texto(base_url, texto_id)
+
+    if "erro" in resultado:
+        return f"<h1>Erro ao buscar texto: {resultado['erro']}</h1>"
+    
+    conteudo = resultado.get('conteudo', 'Texto não encontrado')
+    analise = analisar_texto_transformers(conteudo)
+
+    # Template HTML com CSS
+    template_html = '''
+    <!DOCTYPE html>
+    <html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <title>Análise de Texto</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f0f0f5;
+                margin: 0;
+                padding: 20px;
+            }
+            .container {
+                background-color: #fff;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                border-radius: 10px;
+            }
+            h1 {
+                text-align: center;
+                color: #333;
+            }
+            .texto {
+                margin-bottom: 20px;
+            }
+            .analise {
+                padding: 10px;
+                background-color: #e7f3fe;
+                border-left: 5px solid #2196F3;
+                margin-top: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Análise de Texto</h1>
+            <div class="texto">
+                <strong>Texto:</strong>
+                <p>{{ conteudo }}</p>
+            </div>
+            <div class="analise">
+                <strong>Resultado da Análise:</strong>
+                <p>Sentimento: {{ analise['label'] }}</p>
+                <p>Confiança: {{ analise['score']|round(2) }}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+    # Renderiza o HTML substituindo as variáveis
+    return render_template_string(template_html, conteudo=conteudo, analise=analise)
 
 if __name__ == "__main__":
-    base_url = "http://127.0.0.1:5000"  # URL base do servidor Flask
-    texto_id = int(input("Digite o ID do texto que deseja buscar e analisar: "))
-
-    # Buscar texto
-    resultado = buscar_texto(base_url, texto_id)
-    if "erro" in resultado:
-        print(f"Erro ao buscar texto: {resultado['erro']}")
-    else:
-        print(f"Texto encontrado: {resultado['conteudo']}\n")
-
-        # Analisar texto com Transformers
-        analise = analisar_texto_transformers(resultado['conteudo'])
-        print(f"Análise do Texto:\n{analise}")
+    app.run(debug=True, port=5001)
