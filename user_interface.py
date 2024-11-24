@@ -14,7 +14,7 @@ def buscar_texto(base_url, texto_id):
     except requests.exceptions.RequestException as e:
         return {"erro": str(e)}
 
-# Função para análise de texto com Hugging Face Transformers
+# Função para analisar o texto com Hugging Face Transformers
 def analisar_texto_transformers(texto):
     try:
         sentiment_analysis = pipeline("sentiment-analysis")
@@ -23,14 +23,25 @@ def analisar_texto_transformers(texto):
     except Exception as e:
         return {"erro": str(e)}
 
-# Função para determinar o avaliador (Promotor, Neutro, Detrator)
-def classificar_analise(score):
-    if score >= 0.8:
-        return "Promotor"
-    elif 0.5 < score < 0.8:
-        return "Neutro"
-    else:
-        return "Detrator"
+# Função para classificar o avaliador (Promotor, Neutro ou Detrator)
+def classificar_analise(analise):
+    score = analise['score']
+    
+    # Se o sentimento for negativo, sempre será "Detrator"
+    if analise['label'] == 'NEGATIVE':
+        return 'Detrator'
+    
+    # Se o sentimento for positivo, classificar com base no score
+    if analise['label'] == 'POSITIVE':
+        if score > 0.7:
+            return 'Promotor'
+        elif score >= 0.4:
+            return 'Neutro'
+        else:
+            return 'Detrator'
+    
+    # Sentimento neutro será sempre "Neutro"
+    return 'Neutro'
 
 # Rota para exibir a análise em HTML
 @app.route('/analisar_texto/<int:texto_id>')
@@ -43,12 +54,7 @@ def analisar_texto(texto_id):
     
     conteudo = resultado.get('conteudo', 'Texto não encontrado')
     analise = analisar_texto_transformers(conteudo)
-
-    if isinstance(analise, dict) and "erro" in analise:
-        return f"<h1>{analise['erro']}</h1>"
-
-    score = analise['score']
-    classificacao = classificar_analise(score)
+    classificacao = classificar_analise(analise)
 
     # Template HTML com CSS
     template_html = '''
@@ -86,22 +92,11 @@ def analisar_texto(texto_id):
                 margin-top: 10px;
             }
             .classificacao {
-                font-weight: bold;
+                margin-top: 20px;
                 padding: 10px;
-                background-color: #f1f1f1;
-                margin-top: 10px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
+                font-weight: bold;
+                background-color: #ffeb3b;
                 text-align: center;
-            }
-            .promotor {
-                color: #4CAF50;
-            }
-            .neutro {
-                color: #FF9800;
-            }
-            .detrator {
-                color: #F44336;
             }
         </style>
     </head>
@@ -117,8 +112,9 @@ def analisar_texto(texto_id):
                 <p>Sentimento: {{ analise['label'] }}</p>
                 <p>Confiança: {{ analise['score']|round(2) }}</p>
             </div>
-            <div class="classificacao {% if classificacao == 'Promotor' %}promotor{% elif classificacao == 'Neutro' %}neutro{% else %}detrator{% endif %}">
-                <p>Avaliação: {{ classificacao }}</p>
+            <div class="classificacao">
+                <strong>Classificação do Avaliador:</strong>
+                <p>{{ classificacao }}</p>
             </div>
         </div>
     </body>
@@ -128,4 +124,4 @@ def analisar_texto(texto_id):
     return render_template_string(template_html, conteudo=conteudo, analise=analise, classificacao=classificacao)
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)  # Usando a porta 5001
+    app.run(debug=True, port=5001)
